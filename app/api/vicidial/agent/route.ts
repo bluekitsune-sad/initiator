@@ -27,23 +27,38 @@ export async function POST(req: NextRequest) {
     }
 
     const url = `${VICIDIAL_URL}/agc/api.php?${params.toString()}`
-    console.log('Agent API:', url)
     
-    const response = await fetch(url, {
-      method: 'GET',
-      cache: 'no-store',
-    })
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 15000)
 
-    const text = await response.text()
-    console.log('Agent API response:', text.substring(0, 200))
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        cache: 'no-store',
+        signal: controller.signal,
+      })
 
-    return new NextResponse(text, {
-      status: response.status,
-      headers: { 
-        'Content-Type': 'text/plain',
-        'Access-Control-Allow-Origin': '*',
-      },
-    })
+      clearTimeout(timeout)
+      const text = await response.text()
+
+      return new NextResponse(text, {
+        status: response.status,
+        headers: { 
+          'Content-Type': 'text/plain',
+          'Access-Control-Allow-Origin': '*',
+        },
+      })
+    } catch (fetchError: any) {
+      clearTimeout(timeout)
+      console.error('Fetch error:', fetchError.message)
+      
+      return NextResponse.json({
+        error: 'Cannot connect to VICIdial server',
+        details: fetchError.message,
+        vicidial_url: VICIDIAL_URL,
+        hint: 'Check firewall settings on VICIdial server to allow external connections'
+      }, { status: 502 })
+    }
   } catch (error) {
     console.error('Agent API error:', error)
     return NextResponse.json(
@@ -73,23 +88,38 @@ export async function GET(req: NextRequest) {
 
   try {
     const url = `${VICIDIAL_URL}/agc/api.php?${params.toString()}`
-    console.log('Agent API GET:', url)
     
-    const response = await fetch(url, {
-      method: 'GET',
-      cache: 'no-store',
-    })
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 15000)
 
-    const text = await response.text()
-    console.log('Agent API GET response:', text.substring(0, 200))
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        cache: 'no-store',
+        signal: controller.signal,
+      })
 
-    return new NextResponse(text, {
-      status: response.status,
-      headers: { 
-        'Content-Type': 'text/plain',
-        'Access-Control-Allow-Origin': '*',
-      },
-    })
+      clearTimeout(timeout)
+      const text = await response.text()
+
+      return new NextResponse(text, {
+        status: response.status,
+        headers: { 
+          'Content-Type': 'text/plain',
+          'Access-Control-Allow-Origin': '*',
+        },
+      })
+    } catch (fetchError: any) {
+      clearTimeout(timeout)
+      console.error('Fetch error:', fetchError.message)
+      
+      return NextResponse.json({
+        error: 'Cannot connect to VICIdial server',
+        details: fetchError.message,
+        vicidial_url: VICIDIAL_URL,
+        hint: 'Check firewall settings on VICIdial server to allow external connections'
+      }, { status: 502 })
+    }
   } catch (error) {
     console.error('Agent API GET error:', error)
     return NextResponse.json(
