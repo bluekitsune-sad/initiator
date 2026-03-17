@@ -163,6 +163,16 @@ export default function DashboardPage() {
     }
   }
 
+  const handleDebug = async () => {
+    try {
+      addLog('Debug info...')
+      const result = await sendCommand('debug', {})
+      addLog(`Debug: ${String(result).substring(0, 300)}`)
+    } catch (e: any) {
+      addLog(`Error: ${e.message}`)
+    }
+  }
+
   return (
     <div>
       <iframe
@@ -184,6 +194,7 @@ export default function DashboardPage() {
         <button onClick={handleResume} disabled={!isReady} style={{padding:'10px 20px',background:'#5cb85c',border:'none',cursor:'pointer'}}>Resume</button>
         <button onClick={handleHangup} disabled={!isReady} style={{padding:'10px 20px',background:'#d9534f',border:'none',cursor:'pointer'}}>Hangup</button>
         <button onClick={handleLogout} disabled={!isReady} style={{padding:'10px 20px',background:'#777',color:'#fff',border:'none',cursor:'pointer'}}>Logout</button>
+        <button onClick={handleDebug} style={{padding:'10px 20px',background:'#337ab7',color:'#fff',border:'none',cursor:'pointer'}}>Debug</button>
       </div>
 
       <div style={{ marginBottom: '20px', display: 'flex', gap: '10px' }}>
