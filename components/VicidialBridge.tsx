@@ -3,86 +3,95 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 
 interface BridgeMessage {
-  type?: string
-  id?: string | number
+  id?: number
   action?: string
+  type?: string
   status?: string
   message?: string
-  response?: string
 }
 
 export function useVicidialBridge(agentUser: string = '2416') {
   const [isReady, setIsReady] = useState(false)
-  const [bridgeStatus, setBridgeStatus] = useState<string>('disconnected')
+  const [status, setStatus] = useState('disconnected')
   const iframeRef = useRef<HTMLIFrameElement>(null)
-  const pendingRequests = useRef<Map<number, { resolve: Function; reject: Function }>>(new Map())
+  const pendingRef = useRef<Map<number, { resolve: Function; reject: Function }>>(new Map())
+  const loadedRef = useRef(false)
 
   useEffect(() => {
+    if (loadedRef.current) return
+    loadedRef.current = true
+
     const handleMessage = (event: MessageEvent) => {
       const data = event.data as BridgeMessage
       
       if (data.type === 'bridge_ready') {
         setIsReady(true)
-        setBridgeStatus('connected')
+        setStatus('connected')
         return
       }
       
-      const msgId = Number(data.id)
-      if (msgId && pendingRequests.current.has(msgId)) {
-        const pending = pendingRequests.current.get(msgId)
-        pendingRequests.current.delete(msgId)
+      if (data.id && pendingRef.current.has(data.id)) {
+        const pending = pendingRef.current.get(data.id)
+        pendingRef.current.delete(data.id)
         
-        if (pending) {
-          if (data.status === 'ok') {
-            pending.resolve(data.response || data.message)
-          } else {
-            pending.reject(data.message || 'API error')
-          }
+        if (data.status === 'ok') {
+          pending?.resolve(data.message || 'OK')
+        } else {
+          pending?.reject(data.message || 'Error')
         }
       }
     }
 
     window.addEventListener('message', handleMessage)
-    return () => window.removeEventListener('message', handleMessage)
+    return () => {
+      window.removeEventListener('message', handleMessage)
+      loadedRef.current = false
+    }
   }, [])
 
   const sendCommand = useCallback((action: string, params: Record<string, string> = {}): Promise<string> => {
     return new Promise((resolve, reject) => {
-      if (!iframeRef.current?.contentWindow || !isReady) {
-        reject(new Error('Bridge not ready'))
+      if (!iframeRef.current?.contentWindow) {
+        reject(new Error('Iframe not ready'))
         return
       }
 
       const id = Date.now()
-      pendingRequests.current.set(id, { resolve, reject })
+      pendingRef.current.set(id, { resolve, reject })
 
-      iframeRef.current.contentWindow!.postMessage({
-        id,
-        action,
-        agent_user: agentUser,
-        ...params
-      }, '*')
+      try {
+        iframeRef.current.contentWindow.postMessage({
+          id,
+          action,
+          agent_user: agentUser,
+          ...params
+        }, '*')
+      } catch (e) {
+        pendingRef.current.delete(id)
+        reject(e)
+        return
+      }
 
       setTimeout(() => {
-        if (pendingRequests.current.has(id)) {
-          pendingRequests.current.delete(id)
+        if (pendingRef.current.has(id)) {
+          pendingRef.current.delete(id)
           reject(new Error('Request timeout'))
         }
-      }, 10000)
+      }, 15000)
     })
-  }, [agentUser, isReady])
+  }, [agentUser])
 
   const pause = () => sendCommand('pause', { value: 'PAUSE' })
   const resume = () => sendCommand('pause', { value: 'RESUME' })
-  const hangup = () => sendCommand('hangup', {})
-  const dial = (phoneNumber: string) => sendCommand('dial', { phone_number: phoneNumber })
-  const setDisposition = (statusCode: string) => sendCommand('status', { status: statusCode })
-  const logout = () => sendCommand('logout', {})
+  const hangup = () => sendCommand('hangup', { value: '1' })
+  const dial = (phone: string) => sendCommand('dial', { phone_number: phone, search: 'YES', preview: 'YES', focus: 'YES' })
+  const setDisposition = (code: string) => sendCommand('status', { status: code })
+  const logout = () => sendCommand('logout', { value: 'LOGOUT' })
   const ping = () => sendCommand('ping', {})
 
   return {
     isReady,
-    status: bridgeStatus,
+    status,
     iframeRef,
     pause,
     resume,
@@ -91,51 +100,5 @@ export function useVicidialBridge(agentUser: string = '2416') {
     setDisposition,
     logout,
     ping,
-    sendCommand,
   }
-}
-
-export function VicidialBridgeFrame({ 
-  vicidialUrl = 'https://dialer.synapselabs.us/agc/crm_bridge.php',
-  iframeRef,
-  onStatusChange 
-}: { 
-  vicidialUrl?: string
-  iframeRef: React.RefObject<HTMLIFrameElement>
-  onStatusChange?: (status: 'loading' | 'ready' | 'error', message?: string) => void
-}) {
-  useEffect(() => {
-    if (iframeRef.current) {
-      onStatusChange?.('loading', 'Connecting to VICIdial...')
-      iframeRef.current.src = vicidialUrl
-    }
-  }, [vicidialUrl, onStatusChange, iframeRef])
-
-  const handleIframeLoad = () => {
-    console.log('Bridge iframe loaded')
-  }
-
-  const handleIframeError = () => {
-    onStatusChange?.('error', 'Failed to connect to VICIdial')
-  }
-
-  return (
-    <iframe
-      ref={iframeRef}
-      id="vicidial-bridge-frame"
-      title="VICIdial Bridge"
-      onLoad={handleIframeLoad}
-      onError={handleIframeError}
-      style={{
-        position: 'absolute',
-        left: '-9999px',
-        top: '0',
-        width: '1px',
-        height: '1px',
-        opacity: 0,
-        pointerEvents: 'none',
-        border: 0,
-      }}
-    />
-  )
 }

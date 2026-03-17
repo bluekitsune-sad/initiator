@@ -1,12 +1,14 @@
 'use client'
 
-import { useState } from 'react'
-import { useVicidialBridge, VicidialBridgeFrame } from '@/components/VicidialBridge'
+import { useState, useEffect } from 'react'
+import { useVicidialBridge } from '@/components/VicidialBridge'
 
 export default function DashboardPage() {
   const [logs, setLogs] = useState<string[]>([])
   const [phoneNumber, setPhoneNumber] = useState('')
   const [statusCode, setStatusCode] = useState('')
+  const [iframeSrc, setIframeSrc] = useState('')
+  
   const { 
     isReady, 
     status, 
@@ -20,17 +22,24 @@ export default function DashboardPage() {
     ping 
   } = useVicidialBridge('2416')
 
+  useEffect(() => {
+    if (!iframeSrc && iframeRef.current) {
+      setIframeSrc('https://dialer.synapselabs.us/agc/crm_bridge.php')
+      iframeRef.current.src = 'https://dialer.synapselabs.us/agc/crm_bridge.php'
+    }
+  }, [iframeSrc, iframeRef])
+
   const addLog = (message: string) => {
     const time = new Date().toLocaleTimeString()
     const entry = `[${time}] ${message}`
-    setLogs(prev => [entry, ...prev].slice(0, 100))
+    setLogs(prev => [entry, ...prev].slice(0, 50))
   }
 
   const handlePause = async () => {
     try {
-      addLog('Pausing agent...')
+      addLog('Pausing...')
       const result = await pause()
-      addLog(`Pause: ${result}`)
+      addLog(`Result: ${String(result).substring(0, 100)}`)
     } catch (e: any) {
       addLog(`Error: ${e.message}`)
     }
@@ -38,9 +47,9 @@ export default function DashboardPage() {
 
   const handleResume = async () => {
     try {
-      addLog('Resuming agent...')
+      addLog('Resuming...')
       const result = await resume()
-      addLog(`Resume: ${result}`)
+      addLog(`Result: ${String(result).substring(0, 100)}`)
     } catch (e: any) {
       addLog(`Error: ${e.message}`)
     }
@@ -50,7 +59,7 @@ export default function DashboardPage() {
     try {
       addLog('Hanging up...')
       const result = await hangup()
-      addLog(`Hangup: ${result}`)
+      addLog(`Result: ${String(result).substring(0, 100)}`)
     } catch (e: any) {
       addLog(`Error: ${e.message}`)
     }
@@ -58,13 +67,13 @@ export default function DashboardPage() {
 
   const handleDial = async () => {
     if (!phoneNumber) {
-      addLog('Please enter a phone number')
+      addLog('Enter phone number')
       return
     }
     try {
       addLog(`Dialing ${phoneNumber}...`)
       const result = await dial(phoneNumber)
-      addLog(`Dial: ${result}`)
+      addLog(`Result: ${String(result).substring(0, 100)}`)
     } catch (e: any) {
       addLog(`Error: ${e.message}`)
     }
@@ -72,13 +81,13 @@ export default function DashboardPage() {
 
   const handleStatus = async () => {
     if (!statusCode) {
-      addLog('Please enter a status code')
+      addLog('Enter status code')
       return
     }
     try {
-      addLog(`Setting status to ${statusCode}...`)
+      addLog(`Setting status ${statusCode}...`)
       const result = await setDisposition(statusCode)
-      addLog(`Status: ${result}`)
+      addLog(`Result: ${String(result).substring(0, 100)}`)
     } catch (e: any) {
       addLog(`Error: ${e.message}`)
     }
@@ -88,7 +97,7 @@ export default function DashboardPage() {
     try {
       addLog('Logging out...')
       const result = await logout()
-      addLog(`Logout: ${result}`)
+      addLog(`Result: ${String(result).substring(0, 100)}`)
     } catch (e: any) {
       addLog(`Error: ${e.message}`)
     }
@@ -96,104 +105,51 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <VicidialBridgeFrame 
-        vicidialUrl="https://dialer.synapselabs.us/agc/crm_bridge.php"
-        iframeRef={iframeRef}
-        onStatusChange={(s, m) => addLog(`Bridge: ${s} - ${m}`)}
+      <iframe
+        ref={iframeRef}
+        title="VICIdial Bridge"
+        style={{ display: 'none' }}
       />
 
-      <div className="control-panel" style={{ marginBottom: '24px', background: '#e7f3ff', border: '1px solid #b3d9ff' }}>
-        <h2 style={{ marginBottom: '12px' }}>VICIdial Integration (Window Messaging Bridge)</h2>
-        <p>This method uses postMessage to communicate between CRM and VICIdial iframe.</p>
-        <p><strong>Bridge Status:</strong> {isReady ? 'Connected' : 'Connecting...'}</p>
+      <div className="control-panel" style={{ marginBottom: '20px', background: '#e7f3ff' }}>
+        <h2>VICIdial - Window Messaging Bridge</h2>
+        <p><strong>Bridge Status:</strong> {isReady ? '✅ Connected' : '🔄 Connecting...'}</p>
       </div>
 
-      <div className="status-bar">
-        <div className="status-item">
-          <span className="status-label">Status:</span>
-          <span className={`status-value ${isReady ? 'active' : ''}`}>
-            {isReady ? 'Connected' : 'Connecting...'}
-          </span>
-        </div>
-        <div className="status-item">
-          <span className="status-label">Agent:</span>
-          <span className="status-value">2416</span>
-        </div>
-        <div className="status-item">
-          <span className="status-label">Campaign:</span>
-          <span className="status-value">INBRETEN</span>
-        </div>
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
+        <button onClick={handlePause} disabled={!isReady} className="btn btn-warning">Pause</button>
+        <button onClick={handleResume} disabled={!isReady} className="btn btn-success">Resume</button>
+        <button onClick={handleHangup} disabled={!isReady} className="btn btn-danger">Hangup</button>
+        <button onClick={handleLogout} disabled={!isReady} className="btn btn-secondary">Logout</button>
       </div>
 
-      <div className="controls-grid">
-        <div className="control-panel">
-          <h3>Agent Status</h3>
-          <div className="button-group">
-            <button className="btn btn-warning" onClick={handlePause} disabled={!isReady}>
-              Pause
-            </button>
-            <button className="btn btn-success" onClick={handleResume} disabled={!isReady}>
-              Resume
-            </button>
-          </div>
-        </div>
-
-        <div className="control-panel">
-          <h3>Call Control</h3>
-          <div className="button-group">
-            <button className="btn btn-danger" onClick={handleHangup} disabled={!isReady}>
-              Hangup
-            </button>
-            <button className="btn btn-secondary" onClick={handleLogout} disabled={!isReady}>
-              Logout
-            </button>
-          </div>
-        </div>
-
-        <div className="control-panel">
-          <h3>Manual Dial</h3>
-          <div className="dial-input">
-            <input
-              type="tel"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-              placeholder="Phone number"
-            />
-            <button className="btn btn-primary" onClick={handleDial} disabled={!isReady}>
-              Dial
-            </button>
-          </div>
-        </div>
-
-        <div className="control-panel">
-          <h3>Disposition</h3>
-          <div className="dial-input">
-            <input
-              type="text"
-              value={statusCode}
-              onChange={(e) => setStatusCode(e.target.value)}
-              placeholder="Status code"
-            />
-            <button className="btn btn-primary" onClick={handleStatus} disabled={!isReady}>
-              Set
-            </button>
-          </div>
-        </div>
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
+        <input
+          type="tel"
+          value={phoneNumber}
+          onChange={(e) => setPhoneNumber(e.target.value)}
+          placeholder="Phone number"
+          style={{ padding: '8px', width: '150px' }}
+        />
+        <button onClick={handleDial} disabled={!isReady} className="btn btn-primary">Dial</button>
       </div>
 
-      <div className="control-panel" style={{ marginTop: '24px' }}>
-        <h2>Activity Log</h2>
-        <div className="log-panel">
-          {logs.length === 0 ? (
-            <div className="log-entry">
-              <span className="time">[--:--:--]</span> Waiting for activity...
-            </div>
-          ) : (
-            logs.map((log, index) => (
-              <div key={index} className="log-entry">{log}</div>
-            ))
-          )}
-        </div>
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
+        <input
+          type="text"
+          value={statusCode}
+          onChange={(e) => setStatusCode(e.target.value)}
+          placeholder="Status code"
+          style={{ padding: '8px', width: '150px' }}
+        />
+        <button onClick={handleStatus} disabled={!isReady} className="btn btn-primary">Set Status</button>
+      </div>
+
+      <div className="log-panel">
+        <h3>Activity Log</h3>
+        {logs.map((log, i) => (
+          <div key={i} style={{ fontSize: '12px', marginBottom: '4px' }}>{log}</div>
+        ))}
       </div>
     </div>
   )
