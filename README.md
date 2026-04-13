@@ -1,15 +1,3 @@
-Here’s a **complete professional `doc.md`** for your Windows Dev Bootstrapper project, including:
-
-* What it does
-* Features
-* Architecture
-* How to install
-* How to run via GitHub / npx
-* How to publish to npm
-* How to extend it
-
-You can directly save this as `doc.md` or `README.md`.
-
 ---
 
 # 📘 Windows Dev Bootstrapper
