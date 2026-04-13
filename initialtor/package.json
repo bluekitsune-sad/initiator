@@ -1,0 +1,13 @@
+{
+  "name": "windows-dev-bootstrapper",
+  "version": "1.0.0",
+  "bin": {
+    "win-setup": "main.js"
+  },
+  "main": "main.js",
+  "type": "commonjs",
+  "dependencies": {},
+  "engines": {
+    "node": ">=16"
+  }
+}
